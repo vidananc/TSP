@@ -7,10 +7,10 @@ public class TSP
     private int[][] d;
     private int[] step;
     private int[] br;
-    private int t = 1;
     private int bw = Integer.MAX_VALUE;
     private int cw = 0;
-    public TSP(String fileName) throws FileNotFoundException {
+    public TSP(String fileName) throws FileNotFoundException
+    {
         createMap(fileName);
         tsp(2);
     }
@@ -59,11 +59,10 @@ public class TSP
             if(cw < bw)
             {
                 bw = cw;
-                cw -= d[step[t - 1] - 1][step[1] - 1];
                 System.arraycopy(step, 1, br, 1, step.length - 1);
-                return ;
             }
             cw -= d[step[t - 1] - 1][step[1] - 1];
+            return ;
         }
         for(int i = t; i < step.length; i++)
         {
