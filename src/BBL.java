@@ -1,8 +1,6 @@
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class BBL
 {
@@ -11,6 +9,7 @@ public class BBL
     private int[][] d;
     private int[][] map;
     private int loc;
+    private List<Integer> result = new ArrayList<>();
     public BBL(String fileName) throws FileNotFoundException {
         createMap(fileName);
         getFirstAndSecondBig();
@@ -42,7 +41,7 @@ public class BBL
             j = 0;
         }
     }
-    private void getFirstAndSecondBig()
+    private void getFirstAndSecondBig()//获取每个顶点的邻接边的最小两个边，使用堆排初始建堆来实现
     {
         int current, big, temp;
         int[] copy = new int[d[0].length];
@@ -59,10 +58,10 @@ public class BBL
                     big = (current + 1) * 2 - 1;
                     if((current + 1) * 2 < d[i].length)
                     {
-                        big = copy[big] > copy[(current + 1) * 2] ? big : (current + 1) * 2;
+                        big = copy[big] < copy[(current + 1) * 2] ? big : (current + 1) * 2;
                     }
                     isChanged = false;
-                    if(copy[current] < copy[big])
+                    if(copy[current] > copy[big])
                     {
                         temp = copy[current];
                         copy[current] = copy[big];
@@ -73,31 +72,111 @@ public class BBL
                 }
             }
             map[i][0] = copy[0];
-            map[i][1] = Math.max(copy[1], copy[2]);
+            map[i][1] = Math.min(copy[1], copy[2]);
         }
     }
-    private void bbl()//分支限界法
+    private int getLb(Node next)
     {
-        int i = 1;
-        MyPriorityQueue queue = new MyPriorityQueue(100);
-        Node current, next;
-        for(int k = 1; k < step.length; k++)
+        List<Integer> list = next.step;
+        int map = next.map;
+        int max1, max2;
+        int lb = 0;
+        for(int i = 0; i < list.size(); i++)
         {
-            step[k] = k;
-        }
-        loc = 2;
-        current = new Node(1, 1);
-        current.step.add(1);
-        while(i < step.length)
-        {
-            for(int k = loc; k < step.length; k++)
+            if(i == 0)
             {
-                next = new Node(i + 1, k);
-                next.step.addAll(current.step);//保存父节点的路程信息
-                next.value = current.value + d[current.currentPoint - 1][next.currentPoint - 1];
-                next.setLb(1);
+                lb += d[list.get(i) - 1][list.get(i + 1) - 1];
+                max1 = this.map[list.get(i) - 1][0];
+                max2 = this.map[list.get(i) - 1][1];
+                if(d[list.get(i) - 1][list.get(i + 1) - 1] == max1)
+                {
+                    lb += max2;
+                }
+                else
+                {
+                    lb += max1;
+                }
+            }
+            else if(i == list.size() - 1)
+            {
+                max1 = this.map[list.get(i) - 1][0];
+                max2 = this.map[list.get(i) - 1][1];
+                if(d[list.get(i - 1) - 1][list.get(i) - 1] == max1)
+                {
+                    lb += max2;
+                }
+                else
+                {
+                    lb += max1;
+                }
+            }
+            else
+            {
+                lb += d[list.get(i - 1) - 1][list.get(i) - 1];
+                lb += d[list.get(i) - 1][list.get(i + 1) - 1];
             }
         }
+        for(int i = 1; i < step.length; i++)//遍历位图，将剩余的顶点计算哈密尔顿通路的边
+        {
+            if((map & (1 << i)) == 0)
+            {
+                max1 = this.map[i - 1][0];
+                max2 = this.map[i - 1][1];
+                lb += max1;
+                lb += max2;
+            }
+        }
+        return lb;
+    }
+    public int bbl()//分支限界法
+    {
+        MyPriorityQueue queue = new MyPriorityQueue(100);
+        Node current, next;
+        Node result = null;
+        int map;
+        int bw = Integer.MAX_VALUE;
+        current = new Node(1, 1);
+        current.setStep(new ArrayList<>());
+        int i = 2;
+        while(i < step.length)
+        {
+            map = current.map;
+            for(int l = 1; l < step.length; l++)
+            {
+                if((map & (1 << l)) == 0)//未经过的顶点
+                {
+                    next = new Node(i, l);
+                    next.setValue(current.value + d[current.currentPoint - 1][l - 1]);
+                    next.setStep(current.step);
+                    next.setLb(getLb(next));
+                    if(i != step.length - 1)
+                    {
+                        queue.add(next);
+                    }
+                    else
+                    {
+                        next.setValue(next.value + d[next.currentPoint - 1][0]);
+                        if(next.value < bw)
+                        {
+                            bw = next.value;
+                            result = next;
+                        }
+                    }
+                }
+            }
+            current = queue.getBiggest();
+            i = current.layer + 1;
+            if(current.lb >= bw)
+            {
+                break;
+            }
+        }
+        this.result = result.step;
+        return bw;
+    }
+    public String toString()
+    {
+        return result.toString();
     }
 }
 class Node implements Comparable<Node>
@@ -106,11 +185,22 @@ class Node implements Comparable<Node>
     int value = 0;
     int lb;
     int currentPoint;
+    int map;
     List<Integer> step = new ArrayList<>();
     public Node(int layer, int currentPoint)
     {
         this.layer = layer;
         this.currentPoint = currentPoint;
+    }
+    public void setStep(List<Integer> current)
+    {
+        for(int i = 0; i < current.size(); i++)
+        {
+            step.add(current.get(i));
+            map += (1 << current.get(i));
+        }
+        this.step.add(currentPoint);
+        map += (1 << currentPoint);
     }
     public void setValue(int value)
     {
